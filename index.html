@@ -186,6 +186,15 @@
             display: block !important;
             animation: slideIn 0.3s ease-out;
         }
+
+        .neon-pulse {
+            animation: neon-glow 1.5s infinite alternate;
+        }
+
+        @keyframes neon-glow {
+            from { box-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue); }
+            to { box-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue); }
+        }
     </style>
 </head>
 <body>
@@ -195,7 +204,7 @@
 <div id="name-modal">
     <div class="modal-content">
         <h2 class="pixel-font text-[12px] text-blue-400 mb-4">ENTER FIGHTER NAME</h2>
-        <input type="text" id="name-input" maxlength="12" placeholder="STREETER" class="pixel-font">
+        <input type="text" id="id-input" maxlength="12" placeholder="STREETER" class="pixel-font">
         <div id="btn-start" class="btn-action btn-blue w-full">CONFIRM</div>
     </div>
 </div>
@@ -247,6 +256,11 @@
             <div id="btn-sleep" class="btn-action w-full pixel-font text-[8px]" style="display:none; border-color: var(--neon-yellow); color: var(--neon-yellow);">SLEEP (RESTORE ALL ENERGY)</div>
             <div id="btn-talk" class="btn-action" style="border-color: #fff; display:none;">TALK</div>
             
+            <!-- COMBINED BONUS & SPONSOR BUTTON -->
+            <div id="btn-combined-bonus" class="btn-action pixel-font text-[9px] neon-pulse" style="border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0,242,255,0.1); height: 50px;">
+                CLAIM SPONSOR BONUS (+$50)
+            </div>
+
             <!-- Ad Slot Center -->
             <div class="ad-slot" style="min-height: 60px;">
                 <div class="text-gray-500">AD SPACE (CENTER)</div>
@@ -273,6 +287,9 @@
 </div>
 
 <script>
+    // ADSTERRA CONFIGURATION
+    const ADSTERRA_DIRECT_LINK = "https://www.profitablecpmratenetwork.com/tcfn987pm?key=a26688de9dcb7a7ed7e1fe1c1cd13c6f";
+
     function getCssVar(name) {
         return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
@@ -508,9 +525,22 @@
         document.getElementById('btn-sleep').onclick = () => nextDay();
         document.getElementById('btn-manual-save').onclick = () => save(true);
         
+        // COMBINED BONUS LOGIC
+        document.getElementById('btn-combined-bonus').onclick = () => {
+            // Award Bonus
+            state.cash += 50;
+            log("SPONSOR BONUS: +$50 received!", getCssVar('--neon-green'));
+            updateUI();
+            save();
+
+            // Open Link
+            window.open(ADSTERRA_DIRECT_LINK, '_blank');
+            log("Opening sponsor page...", getCssVar('--neon-blue'));
+        };
+        
         document.getElementById('btn-reset').onclick = () => { if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); } };
         document.getElementById('btn-start').onclick = () => {
-            const val = document.getElementById('name-input').value.trim();
+            const val = document.getElementById('id-input').value.trim();
             if(val) { state.name = val; document.getElementById('name-modal').style.display = 'none'; updateUI(); save(); }
         };
 
