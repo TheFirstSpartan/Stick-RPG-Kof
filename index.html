@@ -12,6 +12,28 @@
     <!-- ADSTERRA SOCIAL BAR (ID: 28997340) -->
     <script type='text/javascript' src='//pl25439783.highperformanceformat.com/f0/2d/72/f02d7293563968393563923563957293.js'></script>
 
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variables
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.doc = doc;
+        window.signInAnonymously = signInAnonymously;
+    </script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -199,7 +221,7 @@
 </head>
 <body>
 
-<div id="save-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-black px-6 py-3 hidden z-[1000] pixel-font text-[12px] border-2 border-white shadow-[0_0_15px_rgba(57,255,20,0.5)]">DATA SAVED SUCCESSFULLY</div>
+<div id="save-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-black px-6 py-3 hidden z-[1000] pixel-font text-[12px] border-2 border-white shadow-[0_0_15px_rgba(57,255,20,0.5)]">DATA SYNCED TO CLOUD</div>
 
 <div id="name-modal">
     <div class="modal-content">
@@ -221,7 +243,7 @@
                 <h3 class="text-[10px] text-blue-400 font-bold pixel-font">PLAYER_INFO</h3>
             </div>
             <div id="player-name" class="text-white font-bold pixel-font text-[10px] mb-1">NAME: ---</div>
-            <div id="player-id" class="text-[9px] text-gray-600 mb-3 break-all">ID: INITIALIZING...</div>
+            <div id="player-id" class="text-[9px] text-gray-600 mb-3 break-all">ID: AUTHENTICATING...</div>
             
             <div class="flex justify-between text-sm mb-2">
                 <span class="text-xs text-gray-400">CASH</span> 
@@ -290,22 +312,14 @@
     // ADSTERRA CONFIGURATION
     const ADSTERRA_DIRECT_LINK = "https://www.profitablecpmratenetwork.com/tcfn987pm?key=a26688de9dcb7a7ed7e1fe1c1cd13c6f";
 
-    function getCssVar(name) {
-        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    }
-
-    const getPlayerID = () => {
-        let id = localStorage.getItem('stick_rpg_v2_id') || 'P-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-        localStorage.setItem('stick_rpg_v2_id', id);
-        return id;
-    };
-
     const INITIAL_STATE = {
         name: "", cash: 20, str: 5, int: 5, cha: 5, soc: 0,
-        energy: 100, day: 1, hour: 8, playerID: getPlayerID(), scene: 'city' 
+        energy: 100, day: 1, hour: 8, scene: 'city' 
     };
 
     let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+    let currentUser = null;
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const logEl = document.getElementById('log');
@@ -318,6 +332,10 @@
         { id: 6, scene: 'downtown', x: 350, color: '#f59e0b', name: 'Terry', dialogue: { talk: "Buster Wolf!!" }, state: 'idle' },
         { id: 9, scene: 'hood', x: 380, color: '#ef4444', name: 'Iori', dialogue: { talk: "I'll end you." }, state: 'idle' }
     ];
+
+    function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
 
     function log(msg, color = "#00f2ff") {
         const div = document.createElement('div');
@@ -341,7 +359,7 @@
         const displayH = h > 12 ? h-12 : h === 0 ? 12 : h;
         const ampm = h >= 12 ? 'PM' : 'AM';
         document.getElementById('time-display').textContent = `DAY ${state.day} - ${displayH.toString().padStart(2, '0')}:00 ${ampm}`;
-        document.getElementById('player-id').textContent = `ID: ${state.playerID}`;
+        document.getElementById('player-id').textContent = currentUser ? `SECURE ID: ${currentUser.uid.substring(0, 15)}...` : "AUTHENTICATING...";
         document.getElementById('scene-display').textContent = state.scene.toUpperCase();
         document.getElementById('btn-sleep').style.display = state.scene === 'home' ? 'flex' : 'none';
 
@@ -356,18 +374,24 @@
                 log(`${nearby.name}: "${nearby.dialogue.talk}"`, nearby.color);
                 state.soc++; 
                 updateUI(); 
-                save();
+                saveToCloud();
             };
         } else talkBtn.style.display = 'none';
     }
 
-    function save(manual = false) {
-        localStorage.setItem('stick_rpg_v2_save', JSON.stringify(state));
-        if(manual) {
-            const toast = document.getElementById('save-toast');
-            toast.classList.add('toast-active');
-            log("Game state manually saved.", getCssVar('--neon-green'));
-            setTimeout(() => { toast.classList.remove('toast-active'); }, 3000);
+    async function saveToCloud(manual = false) {
+        if (!currentUser) return;
+        try {
+            const userDoc = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'saveData', 'current');
+            await window.setDoc(userDoc, state);
+            if(manual) {
+                const toast = document.getElementById('save-toast');
+                toast.classList.add('toast-active');
+                log("Game state manually saved to cloud.", getCssVar('--neon-green'));
+                setTimeout(() => { toast.classList.remove('toast-active'); }, 3000);
+            }
+        } catch (e) {
+            console.error("Cloud Save failed", e);
         }
     }
 
@@ -375,7 +399,7 @@
         state.day++; state.hour = 8; state.energy = 100;
         log(`Day ${state.day}: Morning light hits the concrete.`, getCssVar('--neon-yellow'));
         updateUI(); 
-        save();
+        saveToCloud();
     }
 
     function switchScene(newScene) {
@@ -385,7 +409,7 @@
         stickMan.targetX = stickMan.x;
         log(`Entering ${newScene}...`);
         updateUI(); 
-        save();
+        saveToCloud();
     }
 
     function perform(type) {
@@ -405,7 +429,7 @@
         }
         if(state.hour >= 24) nextDay();
         updateUI(); 
-        save();
+        saveToCloud();
     }
 
     function drawArrow(x, y, dir, color, label) {
@@ -446,57 +470,72 @@
     function drawKofBuilding(x, w, h, baseColor, neonColor, name, isHood = false) {
         ctx.save();
         const groundY = canvas.height * 0.7;
-        
-        // Building Base
         const grad = ctx.createLinearGradient(x, groundY - h, x, groundY);
         grad.addColorStop(0, baseColor); grad.addColorStop(1, '#050508');
         ctx.fillStyle = grad; ctx.fillRect(x, groundY - h, w, h);
         
-        // Windows
         if (!isHood) {
             const time = Date.now();
             const winSpacing = 25;
             for(let row = 1; row < h/winSpacing; row++) {
                 const winY = groundY - h + (row * winSpacing);
                 if (winY + 12 > groundY - 5) continue;
-
                 for(let col = 0; col < 3; col++) {
                     const winX = x + 10 + (col * (w/4));
                     const winW = w/6;
                     const winH = 12;
-
                     const flicker = Math.sin(time / 200 + (row * col)) > 0.8 ? 0.6 : 0.2;
-                    ctx.save();
-                    ctx.globalAlpha = flicker;
+                    ctx.save(); ctx.globalAlpha = flicker;
                     const glow = ctx.createRadialGradient(winX + winW/2, winY + winH/2, 2, winX + winW/2, winY + winH/2, winW);
-                    glow.addColorStop(0, neonColor);
-                    glow.addColorStop(1, 'transparent');
-                    ctx.fillStyle = glow;
-                    ctx.fillRect(winX - 5, winY - 5, winW + 10, winH + 10);
-                    ctx.restore();
-                    
-                    ctx.globalAlpha = 0.8;
-                    ctx.fillStyle = neonColor;
-                    ctx.fillRect(winX, winY, winW, winH);
-                    ctx.globalAlpha = 1.0;
+                    glow.addColorStop(0, neonColor); glow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glow; ctx.fillRect(winX - 5, winY - 5, winW + 10, winH + 10); ctx.restore();
+                    ctx.globalAlpha = 0.8; ctx.fillStyle = neonColor; ctx.fillRect(winX, winY, winW, winH); ctx.globalAlpha = 1.0;
                 }
             }
         }
-
         ctx.strokeStyle = neonColor; ctx.lineWidth = 3;
         ctx.shadowBlur = isHood ? 2 : 15; ctx.shadowColor = neonColor;
         ctx.strokeRect(x, groundY - h, w, h);
-        
         ctx.fillStyle = neonColor; ctx.font = '8px "Press Start 2P"'; ctx.textAlign = 'center';
         ctx.fillText(name, x + w/2, groundY - h - 15);
         ctx.restore();
     }
 
-    function init() {
+    async function init() {
+        // Wait for Firebase global variables to be ready
+        const checkFirebase = setInterval(async () => {
+            if (window.auth && window.db) {
+                clearInterval(checkFirebase);
+                try {
+                    await window.signInAnonymously(window.auth);
+                    window.auth.onAuthStateChanged(async (user) => {
+                        currentUser = user;
+                        if (user) {
+                            const userDoc = window.doc(window.db, 'artifacts', window.appId, 'users', user.uid, 'saveData', 'current');
+                            const snap = await window.getDoc(userDoc);
+                            if (snap.exists()) {
+                                state = snap.data();
+                                document.getElementById('name-modal').style.display = 'none';
+                                log("Cloud Save detected. Restoring session...", "#39ff14");
+                            } else {
+                                document.getElementById('name-modal').style.display = 'flex';
+                            }
+                            updateUI();
+                        }
+                    });
+                } catch (err) {
+                    log("Cloud auth failed. Data will not be synced.", "#ef4444");
+                    document.getElementById('name-modal').style.display = 'flex';
+                }
+            }
+        }, 100);
+
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
         stickMan.y = canvas.height * 0.82;
-        
+        stickMan.x = canvas.width/2;
+        stickMan.targetX = stickMan.x;
+
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
@@ -523,17 +562,13 @@
         document.getElementById('btn-store').onclick = () => perform('store');
         document.getElementById('btn-casino').onclick = () => perform('casino');
         document.getElementById('btn-sleep').onclick = () => nextDay();
-        document.getElementById('btn-manual-save').onclick = () => save(true);
+        document.getElementById('btn-manual-save').onclick = () => saveToCloud(true);
         
-        // COMBINED BONUS LOGIC
         document.getElementById('btn-combined-bonus').onclick = () => {
-            // Award Bonus
             state.cash += 50;
             log("SPONSOR BONUS: +$50 received!", getCssVar('--neon-green'));
             updateUI();
-            save();
-
-            // Open Link
+            saveToCloud();
             window.open(ADSTERRA_DIRECT_LINK, '_blank');
             log("Opening sponsor page...", getCssVar('--neon-blue'));
         };
@@ -541,13 +576,9 @@
         document.getElementById('btn-reset').onclick = () => { if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); } };
         document.getElementById('btn-start').onclick = () => {
             const val = document.getElementById('id-input').value.trim();
-            if(val) { state.name = val; document.getElementById('name-modal').style.display = 'none'; updateUI(); save(); }
+            if(val) { state.name = val; document.getElementById('name-modal').style.display = 'none'; updateUI(); saveToCloud(); }
         };
 
-        const saved = localStorage.getItem('stick_rpg_v2_save');
-        if(saved) Object.assign(state, JSON.parse(saved));
-        if(!state.name) document.getElementById('name-modal').style.display = 'flex';
-        updateUI();
         requestAnimationFrame(gameLoop);
     }
 
