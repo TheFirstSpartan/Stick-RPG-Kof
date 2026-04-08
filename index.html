@@ -15,6 +15,895 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.deleteDoc = deleteDoc;
+        window.doc = doc;
+        window.signInAnonymously = signInAnonymously;
+        window.signInWithCustomToken = signInWithCustomToken;
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff00ea;
+            --neon-green: #39ff14;
+            --neon-yellow: #f59e0b;
+            --neon-red: #ef4444;
+            --kof-bg: #050508;
+            --kof-panel: #0d0d12;
+        }
+
+        body {
+            background-color: var(--kof-bg);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+            margin: 0;
+            height: 100vh;
+        }
+
+        .pixel-font { font-family: 'Press Start 2P', cursive; }
+
+        .game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #gameCanvas {
+            background: #0a0a0f;
+            width: 100%;
+            height: 55%; 
+            image-rendering: pixelated;
+            border-bottom: 3px solid #1e293b;
+            cursor: pointer;
+        }
+
+        .ui-panel {
+            flex: 1;
+            background: var(--kof-panel);
+            padding: 10px;
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 12px;
+            overflow-y: auto;
+            border-top: 2px solid var(--neon-blue);
+        }
+
+        @media (max-width: 900px) {
+            .ui-panel { grid-template-columns: 1fr; }
+            #gameCanvas { height: 40%; }
+        }
+
+        .stat-card {
+            background: #16161d;
+            border: 1px solid #2d2d3d;
+            padding: 12px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .ad-slot {
+            background: #000;
+            border: 1px dashed #333;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #444;
+            margin-top: auto;
+            overflow: hidden;
+        }
+
+        .btn-action {
+            background: linear-gradient(180deg, #444 0%, #111 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #666;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.1s;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 0.65rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        .btn-action:active { transform: translateY(2px); filter: brightness(1.4); }
+        .btn-green { border-color: var(--neon-green); color: var(--neon-green); }
+        .btn-blue { border-color: var(--neon-blue); color: var(--neon-blue); }
+        .btn-red { border-color: var(--neon-red); color: var(--neon-red); }
+        .btn-pink { border-color: var(--neon-pink); color: var(--neon-pink); }
+        .btn-yellow { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+
+        .log-box {
+            background: #050507;
+            border: 1px solid #1e293b;
+            padding: 10px;
+            height: 140px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+            color: #888;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 8px;
+            background: #111;
+            border: 1px solid #333;
+            margin-top: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill { height: 100%; transition: width 0.3s ease; }
+        .energy-fill { background: var(--neon-green); box-shadow: 0 0 10px var(--neon-green); }
+
+        #time-display {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px var(--neon-blue);
+            z-index: 10;
+            font-size: 0.7rem;
+        }
+
+        .scene-indicator {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border: 1px solid var(--neon-yellow);
+            color: var(--neon-yellow);
+            z-index: 10;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        #name-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 2000; padding: 20px;
+        }
+
+        .modal-content { background: #111; border: 2px solid var(--neon-blue); padding: 30px; text-align: center; max-width: 400px; width: 100%; }
+        input { background: #000; border: 1px solid var(--neon-blue); color: white; padding: 10px; width: 100%; margin: 20px 0; text-align: center; text-transform: uppercase; }
+
+        @keyframes slideIn {
+            from { transform: translate(-50%, -100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .toast-active {
+            display: block !important;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .neon-pulse {
+            animation: neon-glow 1.5s infinite alternate;
+        }
+
+        @keyframes neon-glow {
+            from { box-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue); }
+            to { box-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="save-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-black px-6 py-3 hidden z-[1000] pixel-font text-[12px] border-2 border-white shadow-[0_0_15px_rgba(57,255,20,0.5)]">DATA SYNCED TO CLOUD</div>
+
+<div id="name-modal">
+    <div class="modal-content">
+        <h2 class="pixel-font text-[12px] text-blue-400 mb-4">ENTER FIGHTER NAME</h2>
+        <input type="text" id="id-input" maxlength="12" placeholder="STREETER" class="pixel-font">
+        <div id="btn-start" class="btn-action btn-blue w-full">CONFIRM</div>
+    </div>
+</div>
+
+<div class="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="time-display" class="pixel-font">DAY 1 - 08:00 AM</div>
+    <div id="scene-display" class="scene-indicator pixel-font">CITY</div>
+
+    <div class="ui-panel">
+        <!-- PLAYER PANEL -->
+        <div class="stat-card">
+            <h3 class="text-[10px] text-blue-400 font-bold pixel-font">PLAYER_INFO</h3>
+            <div id="player-name" class="text-white font-bold pixel-font text-[10px] mb-1">NAME: ---</div>
+            <div id="player-id" class="text-[9px] text-gray-600 mb-3 break-all">ID: AUTHENTICATING...</div>
+            
+            <div class="flex justify-between text-sm mb-2">
+                <span class="text-xs text-gray-400">CASH</span> 
+                <span id="stat-cash" class="text-green-400 font-bold">$20</span>
+            </div>
+            
+            <div class="mb-2">
+                <div class="flex justify-between text-[9px] text-gray-500 mb-1"><span>ENERGY</span><span id="val-energy">100/100</span></div>
+                <div class="bar-container"><div id="bar-energy" class="bar-fill energy-fill" style="width: 100%"></div></div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-800">
+                <div><div class="text-[8px] text-gray-500">STR</div><div id="stat-str" class="text-xs font-bold">5</div></div>
+                <div><div class="text-[8px] text-gray-500">INT</div><div id="stat-int" class="text-xs font-bold">5</div></div>
+                <div><div class="text-[8px] text-gray-500">CHA</div><div id="stat-cha" class="text-xs font-bold text-pink-500">5</div></div>
+                <div><div class="text-[8px] text-gray-500">SOC</div><div id="stat-soc" class="text-xs font-bold text-yellow-500">0</div></div>
+            </div>
+
+            <div id="btn-manual-save" class="btn-action btn-green mt-3 text-[8px] h-[30px] min-h-[30px] pixel-font">SYNC PROGRESS</div>
+
+            <div class="ad-slot">
+                <div class="text-gray-500">AD SPACE (LEFT)</div>
+            </div>
+        </div>
+
+        <!-- LOG & CENTER ACTION PANEL -->
+        <div class="flex flex-col gap-2">
+            <div id="log" class="log-box flex-1">
+                <div>System Loaded. Welcome to the streets.</div>
+            </div>
+            <div id="btn-sleep" class="btn-action w-full pixel-font text-[8px]" style="display:none; border-color: var(--neon-yellow); color: var(--neon-yellow);">SLEEP (RESTORE ALL ENERGY)</div>
+            <div id="btn-talk" class="btn-action" style="border-color: #fff; display:none;">TALK</div>
+            <div id="btn-interact" class="btn-action btn-yellow pixel-font text-[8px]" style="display:none;">INTERACT</div>
+            <div id="btn-exit" class="btn-action btn-red pixel-font text-[8px]" style="display:none;">EXIT AREA</div>
+            
+            <div id="btn-combined-bonus" class="btn-action pixel-font text-[9px] neon-pulse" style="border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0,242,255,0.1); height: 50px;">
+                CLAIM SPONSOR BONUS (+$50)
+            </div>
+
+            <div class="ad-slot" style="min-height: 60px;">
+                <div class="text-gray-500">AD SPACE (CENTER)</div>
+            </div>
+        </div>
+
+        <!-- ACTION PANEL -->
+        <div class="stat-card">
+            <h3 class="text-[10px] text-blue-400 font-bold mb-2 pixel-font">CORE_LOCATIONS</h3>
+            <div class="grid grid-cols-1 gap-2">
+                <div id="btn-work" class="btn-action btn-green">ENTER OFFICE</div>
+                <div id="btn-gym" class="btn-action btn-blue">ENTER GYM</div>
+                <div id="btn-lib" class="btn-action btn-blue">ENTER LIBRARY</div>
+                <div id="btn-store" class="btn-action btn-yellow">VISIT STORE</div>
+                <div id="btn-pub-enter" class="btn-action btn-pink">ENTER PUB</div>
+                <div id="btn-casino" class="btn-action btn-red">ENTER CASINO</div>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+                <div id="btn-reset" class="text-[8px] text-center text-red-800 cursor-pointer hover:text-red-500 underline uppercase">Reset All Data</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ADSTERRA_DIRECT_LINK = "https://www.profitablecpmratenetwork.com/tcfn987pm?key=a26688de9dcb7a7ed7e1fe1c1cd13c6f";
+
+    const INITIAL_STATE = {
+        name: "", cash: 20, str: 5, int: 5, cha: 5, soc: 0,
+        energy: 100, day: 1, hour: 8, scene: 'city' 
+    };
+
+    let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+    let currentUser = null;
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const logEl = document.getElementById('log');
+
+    const stickMan = { x: 0, y: 0, targetX: 0, speed: 7, isMoving: false, facing: 1 };
+
+    const npcs = [
+        { id: 1, scene: 'city', x: 280, color: '#00f2ff', name: 'Kyo', dialogue: { talk: "Ready to burn?" } },
+        { id: 2, scene: 'city', x: 500, color: '#39ff14', name: 'Beni', dialogue: { talk: "Watch my lightning!" } },
+        { id: 6, scene: 'downtown', x: 350, color: '#f59e0b', name: 'Terry', dialogue: { talk: "Buster Wolf!!" } },
+        { id: 9, scene: 'hood', x: 380, color: '#ef4444', name: 'Iori', dialogue: { talk: "I'll end you." } },
+        { id: 10, scene: 'office', x: 550, color: '#fff', name: 'Receptionist', dialogue: { talk: "Welcome back. Get to work!" } },
+        { id: 11, scene: 'gym', x: 100, color: '#00f2ff', name: 'Trainer Joe', dialogue: { talk: "Focus on the form!" } },
+        { id: 12, scene: 'library', x: 700, color: '#f59e0b', name: 'Librarian', dialogue: { talk: "Shhh! Silence please." } },
+        { id: 13, scene: 'pub', x: 750, color: '#ff00ea', name: 'Bar Lady', dialogue: { talk: "What's your poison tonight?" } }
+    ];
+
+    const storeItems = [
+        { id: 'item1', x: 200, name: 'Mystery Energy', price: 15, energy: 25, color: '#f59e0b' },
+        { id: 'item2', x: 400, name: 'Power Noodle', price: 10, energy: 15, color: '#39ff14' },
+        { id: 'item3', x: 600, name: 'Hot Coffee', price: 5, energy: 10, color: '#ef4444' }
+    ];
+
+    const pubDrinks = [
+        { id: 'beer', x: 200, name: 'Draft Beer', price: 8, energy: 10, cha: 1, soc: 2, color: '#f59e0b' },
+        { id: 'wine', x: 450, name: 'Red Wine', price: 25, energy: 5, cha: 5, soc: 5, color: '#ef4444' },
+        { id: 'champagne', x: 700, name: 'Champagne', price: 120, energy: 15, cha: 15, soc: 20, color: '#39ff14' }
+    ];
+
+    const officeStations = [
+        { id: 'job1', x: 150, name: 'Data Entry', pay: 20, cost: 15, color: '#00f2ff', time: 2 },
+        { id: 'job2', x: 350, name: 'Management', pay: 45, cost: 30, color: '#ff00ea', time: 3, reqInt: 15 },
+        { id: 'job3', x: 650, name: 'CEO Tasks', pay: 120, cost: 50, color: '#f59e0b', time: 4, reqInt: 50, reqCha: 50 }
+    ];
+
+    const gymWorkouts = [
+        { id: 'train1', x: 150, name: 'Treadmill', str: 2, cost: 10, color: '#39ff14', time: 1 },
+        { id: 'train2', x: 380, name: 'Bench Press', str: 5, cost: 25, color: '#ff00ea', time: 2 },
+        { id: 'train3', x: 620, name: 'Heavy Bag', str: 10, cost: 45, color: '#ef4444', time: 3, reqStr: 20 }
+    ];
+
+    const libSessions = [
+        { id: 'study1', x: 180, name: 'Casual Reading', int: 2, cost: 5, color: '#00f2ff', time: 1 },
+        { id: 'study2', x: 420, name: 'Deep Research', int: 6, cost: 20, color: '#39ff14', time: 3 },
+        { id: 'study3', x: 680, name: 'AI Programming', int: 15, cost: 40, color: '#ff00ea', time: 4, reqInt: 25 }
+    ];
+
+    function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function log(msg, color = "#00f2ff") {
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.style.marginBottom = "4px";
+        div.innerHTML = `<span style="opacity:0.3">[${state.hour}:00]</span> ${msg}`;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function updateUI() {
+        document.getElementById('stat-cash').textContent = `$${state.cash}`;
+        document.getElementById('stat-str').textContent = state.str;
+        document.getElementById('stat-int').textContent = state.int;
+        document.getElementById('stat-cha').textContent = state.cha;
+        document.getElementById('stat-soc').textContent = state.soc;
+        document.getElementById('player-name').textContent = `NAME: ${state.name || '---'}`;
+        document.getElementById('val-energy').textContent = `${Math.floor(state.energy)}/100`;
+        document.getElementById('bar-energy').style.width = `${state.energy}%`;
+        
+        const h = state.hour;
+        const displayH = h > 12 ? h-12 : h === 0 ? 12 : h;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        document.getElementById('time-display').textContent = `DAY ${state.day} - ${displayH.toString().padStart(2, '0')}:00 ${ampm}`;
+        document.getElementById('player-id').textContent = currentUser ? `UID: ${currentUser.uid.substring(0, 8)}...` : "AUTHENTICATING...";
+        document.getElementById('scene-display').textContent = state.scene.toUpperCase();
+        
+        document.getElementById('btn-sleep').style.display = state.scene === 'home' ? 'flex' : 'none';
+        document.getElementById('btn-exit').style.display = (['store', 'office', 'gym', 'library', 'pub'].includes(state.scene)) ? 'flex' : 'none';
+
+        const nearbyNpc = npcs.find(n => n.scene === state.scene && Math.abs(n.x - stickMan.x) < 40);
+        const talkBtn = document.getElementById('btn-talk');
+        if (nearbyNpc) {
+            talkBtn.style.display = 'flex';
+            talkBtn.textContent = `TALK TO ${nearbyNpc.name}`;
+            talkBtn.onclick = () => {
+                if (state.energy < 5) { log("Too tired.", getCssVar('--neon-pink')); return; }
+                state.energy -= 5;
+                log(`${nearbyNpc.name}: "${nearbyNpc.dialogue.talk}"`, nearbyNpc.color);
+                state.soc++; 
+                updateUI(); 
+                saveToCloud();
+            };
+        } else talkBtn.style.display = 'none';
+
+        const interactBtn = document.getElementById('btn-interact');
+        interactBtn.style.display = 'none';
+
+        if (state.scene === 'store') {
+            const nearbyItem = storeItems.find(i => Math.abs(i.x - stickMan.x) < 40);
+            if (nearbyItem) {
+                interactBtn.style.display = 'flex';
+                interactBtn.textContent = `BUY ${nearbyItem.name} ($${nearbyItem.price})`;
+                interactBtn.onclick = () => buyItem(nearbyItem);
+            }
+        } else if (state.scene === 'office') {
+            const nearbyJob = officeStations.find(j => Math.abs(j.x - stickMan.x) < 40);
+            if (nearbyJob) {
+                interactBtn.style.display = 'flex';
+                interactBtn.textContent = `DO ${nearbyJob.name} (+$${nearbyJob.pay})`;
+                interactBtn.onclick = () => performOfficeJob(nearbyJob);
+            }
+        } else if (state.scene === 'gym') {
+            const nearbyWorkout = gymWorkouts.find(w => Math.abs(w.x - stickMan.x) < 50);
+            if (nearbyWorkout) {
+                interactBtn.style.display = 'flex';
+                interactBtn.textContent = `START ${nearbyWorkout.name}`;
+                interactBtn.onclick = () => performWorkout(nearbyWorkout);
+            }
+        } else if (state.scene === 'library') {
+            const nearbyStudy = libSessions.find(s => Math.abs(s.x - stickMan.x) < 50);
+            if (nearbyStudy) {
+                interactBtn.style.display = 'flex';
+                interactBtn.textContent = `START ${nearbyStudy.name}`;
+                interactBtn.onclick = () => performStudy(nearbyStudy);
+            }
+        } else if (state.scene === 'pub') {
+            const nearbyDrink = pubDrinks.find(d => Math.abs(d.x - stickMan.x) < 60);
+            if (nearbyDrink) {
+                interactBtn.style.display = 'flex';
+                interactBtn.textContent = `BUY ${nearbyDrink.name} ($${nearbyDrink.price})`;
+                interactBtn.onclick = () => buyDrink(nearbyDrink);
+            }
+        }
+    }
+
+    async function saveToCloud(manual = false) {
+        if (!currentUser) return;
+        try {
+            const userDoc = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'saveData', 'current');
+            await window.setDoc(userDoc, state);
+            if(manual) {
+                const toast = document.getElementById('save-toast');
+                toast.classList.add('toast-active');
+                setTimeout(() => { toast.classList.remove('toast-active'); }, 3000);
+            }
+        } catch (e) { console.error("Cloud Save failed", e); }
+    }
+
+    function buyItem(item) {
+        if (state.cash >= item.price) {
+            state.cash -= item.price;
+            state.energy = Math.min(100, state.energy + item.energy);
+            log(`Consumed ${item.name}! Energy +${item.energy}`, getCssVar('--neon-green'));
+            updateUI();
+            saveToCloud();
+        } else {
+            log("Not enough cash!", getCssVar('--neon-red'));
+        }
+    }
+
+    function buyDrink(drink) {
+        if (state.cash >= drink.price) {
+            state.cash -= drink.price;
+            state.energy = Math.min(100, state.energy + drink.energy);
+            state.cha += drink.cha;
+            state.soc += drink.soc;
+            log(`Drank ${drink.name}! Charm +${drink.cha}, Social +${drink.soc}`, getCssVar('--neon-pink'));
+            updateUI();
+            saveToCloud();
+        } else {
+            log("Too broke for that drink!", getCssVar('--neon-red'));
+        }
+    }
+
+    function performOfficeJob(job) {
+        if (state.energy < job.cost) { log("Not enough energy for this task.", getCssVar('--neon-pink')); return; }
+        if (job.reqInt && state.int < job.reqInt) { log(`Need ${job.reqInt} INT for this position.`, getCssVar('--neon-red')); return; }
+        if (job.reqCha && state.cha < job.reqCha) { log(`Need ${job.reqCha} CHA for this position.`, getCssVar('--neon-red')); return; }
+
+        state.cash += job.pay;
+        state.energy -= job.cost;
+        state.hour += job.time;
+        log(`${job.name} complete! Earned $${job.pay}.`, getCssVar('--neon-green'));
+        
+        if(state.hour >= 24) nextDay();
+        updateUI();
+        saveToCloud();
+    }
+
+    function performWorkout(workout) {
+        if (state.energy < workout.cost) { log("You're too gassed for this!", getCssVar('--neon-pink')); return; }
+        if (workout.reqStr && state.str < workout.reqStr) { log(`You need ${workout.reqStr} STR to handle the Heavy Bag!`, getCssVar('--neon-red')); return; }
+
+        state.str += workout.str;
+        state.energy -= workout.cost;
+        state.hour += workout.time;
+        log(`Finished ${workout.name} session! Strength +${workout.str}.`, getCssVar('--neon-blue'));
+        
+        if(state.hour >= 24) nextDay();
+        updateUI();
+        saveToCloud();
+    }
+
+    function performStudy(session) {
+        if (state.energy < session.cost) { log("Brain fog! Need more energy to study.", getCssVar('--neon-pink')); return; }
+        if (session.reqInt && state.int < session.reqInt) { log(`You need ${session.reqInt} INT to understand this subject!`, getCssVar('--neon-red')); return; }
+
+        state.int += session.int;
+        state.energy -= session.cost;
+        state.hour += session.time;
+        log(`Completed ${session.name}! Intelligence +${session.int}.`, getCssVar('--neon-green'));
+        
+        if(state.hour >= 24) nextDay();
+        updateUI();
+        saveToCloud();
+    }
+
+    function nextDay() {
+        state.day++; state.hour = 8; state.energy = 100;
+        log(`Day ${state.day}: Recovered and ready.`, getCssVar('--neon-yellow'));
+        updateUI(); 
+        saveToCloud();
+    }
+
+    function switchScene(newScene) {
+        state.scene = newScene;
+        stickMan.x = (['city', 'downtown'].includes(newScene)) ? canvas.width/2 : 100;
+        stickMan.targetX = stickMan.x;
+        log(`Entering ${newScene.toUpperCase()}...`);
+        updateUI(); 
+        saveToCloud();
+    }
+
+    function perform(type) {
+        if(state.energy < 20) { log("Exhausted. Need rest.", getCssVar('--neon-pink')); return; }
+        state.hour += 2;
+        if(type === 'casino') {
+            if(state.cash >= 20) {
+                state.cash -= 20; state.energy -= 10;
+                if(Math.random() > 0.6) { state.cash += 60; log("WINNER! Won $60!", getCssVar('--neon-green')); } 
+                else log("Loss at the casino.");
+            } else log("Need $20 to bet.");
+        }
+        if(state.hour >= 24) nextDay();
+        updateUI(); 
+        saveToCloud();
+    }
+
+    function drawArrow(x, y, dir, color, label) {
+        ctx.save();
+        ctx.shadowBlur = 15; ctx.shadowColor = color;
+        ctx.strokeStyle = color; ctx.lineWidth = 4;
+        ctx.beginPath();
+        if (dir === 'left') { ctx.moveTo(x + 30, y); ctx.lineTo(x, y + 20); ctx.lineTo(x + 30, y + 40); }
+        else if (dir === 'right') { ctx.moveTo(x, y); ctx.lineTo(x + 30, y + 20); ctx.lineTo(x, y + 40); }
+        else if (dir === 'down') { ctx.moveTo(x, y); ctx.lineTo(x + 20, y + 30); ctx.lineTo(x + 40, y); }
+        ctx.stroke();
+        ctx.fillStyle = color; ctx.font = '7px "Press Start 2P"'; ctx.textAlign = 'center';
+        ctx.fillText(label, x + 15, y + (dir === 'down' ? -10 : 55));
+        ctx.restore();
+    }
+
+    function drawStickman(x, y, color = '#fff', isPlayer = true, isMoving = false, facing = 1, name = "") {
+        const time = Date.now();
+        const bounce = isMoving ? Math.sin(time / 100) * 5 : Math.sin(time / 300) * 2;
+        const armSwing = isMoving ? Math.sin(time / 100) * 8 : 0;
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(x, y - 65 + bounce, 10, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 55 + bounce); ctx.lineTo(x, y - 25); ctx.stroke();
+        ctx.beginPath(); const shoulderY = y - 50 + bounce;
+        ctx.moveTo(x, shoulderY); ctx.lineTo(x - (18 + armSwing) * facing, shoulderY + 12);
+        ctx.moveTo(x, shoulderY); ctx.lineTo(x + (18 + armSwing) * facing, shoulderY + 12); ctx.stroke();
+        ctx.beginPath();
+        if(isMoving) {
+            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(time/80) * 15, y + 5);
+            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(time/80 + Math.PI) * 15, y + 5);
+        } else {
+            ctx.moveTo(x, y - 25); ctx.lineTo(x - 8, y + 5); ctx.moveTo(x, y - 25); ctx.lineTo(x + 8, y + 5);
+        }
+        ctx.stroke();
+        if(name) { ctx.fillStyle = color; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillText(name, x, y - 85); }
+    }
+
+    function drawKofBuilding(x, w, h, baseColor, neonColor, name, isHood = false) {
+        ctx.save();
+        const groundY = canvas.height * 0.7;
+        const grad = ctx.createLinearGradient(x, groundY - h, x, groundY);
+        grad.addColorStop(0, baseColor); grad.addColorStop(1, '#050508');
+        ctx.fillStyle = grad; ctx.fillRect(x, groundY - h, w, h);
+        if (!isHood) {
+            const time = Date.now();
+            const winSpacing = 25;
+            for(let row = 1; row < h/winSpacing; row++) {
+                const winY = groundY - h + (row * winSpacing);
+                if (winY + 12 > groundY - 5) continue;
+                for(let col = 0; col < 3; col++) {
+                    const winX = x + 10 + (col * (w/4));
+                    const winW = w/6;
+                    const winH = 12;
+                    const flicker = Math.sin(time / 200 + (row * col)) > 0.8 ? 0.6 : 0.2;
+                    ctx.save(); ctx.globalAlpha = flicker;
+                    const glow = ctx.createRadialGradient(winX + winW/2, winY + winH/2, 2, winX + winW/2, winY + winH/2, winW);
+                    glow.addColorStop(0, neonColor); glow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glow; ctx.fillRect(winX - 5, winY - 5, winW + 10, winH + 10); ctx.restore();
+                    ctx.globalAlpha = 0.8; ctx.fillStyle = neonColor; ctx.fillRect(winX, winY, winW, winH); ctx.globalAlpha = 1.0;
+                }
+            }
+        }
+        ctx.strokeStyle = neonColor; ctx.lineWidth = 3;
+        ctx.shadowBlur = isHood ? 2 : 15; ctx.shadowColor = neonColor;
+        ctx.strokeRect(x, groundY - h, w, h);
+        ctx.fillStyle = neonColor; ctx.font = '8px "Press Start 2P"'; ctx.textAlign = 'center';
+        ctx.fillText(name, x + w/2, groundY - h - 15);
+        ctx.restore();
+    }
+
+    function drawStoreInterior() {
+        const groundY = canvas.height * 0.7;
+        ctx.fillStyle = '#111'; ctx.fillRect(50, groundY - 100, canvas.width - 100, 80);
+        ctx.strokeStyle = '#333'; ctx.strokeRect(50, groundY - 100, canvas.width - 100, 80);
+        storeItems.forEach(item => {
+            ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = item.color;
+            ctx.fillStyle = item.color; ctx.fillRect(item.x - 10, groundY - 80, 20, 30);
+            ctx.fillStyle = '#fff'; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(item.name, item.x, groundY - 90); ctx.restore();
+        });
+    }
+
+    function drawOfficeInterior() {
+        const groundY = canvas.height * 0.7;
+        ctx.fillStyle = '#0a0a14'; ctx.fillRect(0, 0, canvas.width, groundY);
+        officeStations.forEach(job => {
+            ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = job.color;
+            ctx.fillStyle = '#1a1a2e'; ctx.fillRect(job.x - 40, groundY - 40, 80, 40);
+            ctx.strokeStyle = job.color; ctx.lineWidth = 2; ctx.strokeRect(job.x - 40, groundY - 40, 80, 40);
+            ctx.fillStyle = '#000'; ctx.fillRect(job.x - 15, groundY - 65, 30, 20);
+            ctx.strokeStyle = job.color; ctx.strokeRect(job.x - 15, groundY - 65, 30, 20);
+            ctx.globalAlpha = 0.3; ctx.fillStyle = job.color; ctx.fillRect(job.x - 12, groundY - 62, 24, 14);
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = '#fff'; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(job.name, job.x, groundY - 80); ctx.restore();
+        });
+    }
+
+    function drawGymInterior() {
+        const groundY = canvas.height * 0.7;
+        ctx.fillStyle = '#11111a'; ctx.fillRect(0, 0, canvas.width, groundY);
+        gymWorkouts.forEach(work => {
+            ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = work.color;
+            if (work.id === 'train1') {
+                ctx.fillStyle = '#222'; ctx.fillRect(work.x-30, groundY-15, 60, 15);
+                ctx.strokeStyle = work.color; ctx.strokeRect(work.x-30, groundY-15, 60, 15);
+            } else if (work.id === 'train2') {
+                ctx.fillStyle = '#222'; ctx.fillRect(work.x-40, groundY-20, 80, 20);
+                ctx.strokeStyle = work.color; ctx.strokeRect(work.x-40, groundY-20, 80, 20);
+            } else if (work.id === 'train3') {
+                ctx.fillStyle = '#333'; ctx.fillRect(work.x-15, groundY-80, 30, 70);
+                ctx.strokeStyle = work.color; ctx.strokeRect(work.x-15, groundY-80, 30, 70);
+            }
+            ctx.fillStyle = '#fff'; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(work.name, work.x, groundY - 100); ctx.restore();
+        });
+    }
+
+    function drawLibraryInterior() {
+        const groundY = canvas.height * 0.7;
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, canvas.width, groundY);
+        ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 1;
+        for(let x=0; x<canvas.width; x+=100) {
+            ctx.strokeRect(x+10, 20, 80, groundY-40);
+            for(let y=40; y<groundY-60; y+=20) {
+                ctx.beginPath(); ctx.moveTo(x+10, y); ctx.lineTo(x+90, y); ctx.stroke();
+            }
+        }
+        libSessions.forEach(session => {
+            ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = session.color;
+            ctx.fillStyle = '#111'; ctx.fillRect(session.x - 35, groundY - 40, 70, 40);
+            ctx.strokeStyle = session.color; ctx.lineWidth = 2; ctx.strokeRect(session.x - 35, groundY - 40, 70, 40);
+            ctx.fillStyle = '#000'; ctx.fillRect(session.x - 15, groundY - 60, 30, 20);
+            ctx.strokeStyle = session.color; ctx.strokeRect(session.x - 15, groundY - 60, 30, 20);
+            ctx.fillStyle = '#fff'; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(session.name, session.x, groundY - 80); ctx.restore();
+        });
+    }
+
+    function drawPubInterior() {
+        const groundY = canvas.height * 0.7;
+        ctx.fillStyle = '#0a050a'; ctx.fillRect(0, 0, canvas.width, groundY);
+        
+        // Draw the long bar counter
+        ctx.fillStyle = '#2a1a10'; ctx.fillRect(50, groundY - 50, canvas.width - 100, 50);
+        ctx.strokeStyle = '#ff00ea'; ctx.lineWidth = 2;
+        ctx.shadowBlur = 10; ctx.shadowColor = '#ff00ea';
+        ctx.strokeRect(50, groundY - 50, canvas.width - 100, 50);
+
+        pubDrinks.forEach(drink => {
+            ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = drink.color;
+            // Bottle shape
+            ctx.fillStyle = drink.color;
+            ctx.fillRect(drink.x - 5, groundY - 75, 10, 25);
+            ctx.fillRect(drink.x - 3, groundY - 85, 6, 10);
+            
+            ctx.fillStyle = '#fff'; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(drink.name, drink.x, groundY - 100);
+            ctx.font = '5px "Press Start 2P"';
+            ctx.fillText(`$${drink.price}`, drink.x, groundY - 92);
+            ctx.restore();
+        });
+    }
+
+    function varColor(name) { return getCssVar(name); }
+
+    async function init() {
+        const checkFirebase = setInterval(async () => {
+            if (window.auth && window.db) {
+                clearInterval(checkFirebase);
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await window.signInWithCustomToken(window.auth, __initial_auth_token);
+                    } else {
+                        await window.signInAnonymously(window.auth);
+                    }
+                    window.auth.onAuthStateChanged(async (user) => {
+                        currentUser = user;
+                        if (user) {
+                            const userDoc = window.doc(window.db, 'artifacts', window.appId, 'users', user.uid, 'saveData', 'current');
+                            const snap = await window.getDoc(userDoc);
+                            if (snap.exists()) {
+                                state = snap.data();
+                                document.getElementById('name-modal').style.display = 'none';
+                            } else { document.getElementById('name-modal').style.display = 'flex'; }
+                            updateUI();
+                        }
+                    });
+                } catch (err) { document.getElementById('name-modal').style.display = 'flex'; }
+            }
+        }, 100);
+
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        stickMan.y = canvas.height * 0.82; stickMan.x = canvas.width/2; stickMan.targetX = stickMan.x;
+
+        window.addEventListener('resize', () => {
+            canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+            stickMan.y = canvas.height * 0.82;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            
+            if (state.scene === 'city') {
+                if (clickX < 80) switchScene('home');
+                else if (clickX > canvas.width - 80) switchScene('downtown');
+                else if (clickY > canvas.height * 0.85) switchScene('hood');
+            } else if (['downtown', 'hood', 'home'].includes(state.scene)) {
+                if (clickX < 80 || clickX > canvas.width - 80) switchScene('city');
+            }
+            
+            stickMan.targetX = clickX; stickMan.isMoving = true;
+            stickMan.facing = stickMan.targetX > stickMan.x ? 1 : -1;
+        });
+
+        document.getElementById('btn-casino').onclick = () => perform('casino');
+        document.getElementById('btn-store').onclick = () => switchScene('store');
+        document.getElementById('btn-work').onclick = () => switchScene('office');
+        document.getElementById('btn-gym').onclick = () => switchScene('gym');
+        document.getElementById('btn-lib').onclick = () => switchScene('library');
+        document.getElementById('btn-pub-enter').onclick = () => switchScene('pub');
+        document.getElementById('btn-exit').onclick = () => switchScene('city');
+        document.getElementById('btn-sleep').onclick = () => nextDay();
+        document.getElementById('btn-manual-save').onclick = () => saveToCloud(true);
+        
+        document.getElementById('btn-combined-bonus').onclick = () => {
+            state.cash += 50; log("AD BONUS: +$50 received!", getCssVar('--neon-green'));
+            updateUI(); saveToCloud(); window.open(ADSTERRA_DIRECT_LINK, '_blank');
+        };
+        
+        document.getElementById('btn-reset').onclick = async () => { 
+            if(confirm("Reset all data?")) { 
+                if (currentUser) {
+                    const userDoc = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'saveData', 'current');
+                    await window.deleteDoc(userDoc);
+                }
+                location.reload(); 
+            } 
+        };
+        
+        document.getElementById('btn-start').onclick = () => {
+            const val = document.getElementById('id-input').value.trim();
+            if(val) { 
+                state.name = val; document.getElementById('name-modal').style.display = 'none'; 
+                updateUI(); saveToCloud(); log(`Fighter ${val} registered.`);
+            }
+        };
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const blue = varColor('--neon-blue');
+        const pink = varColor('--neon-pink');
+        const yellow = varColor('--neon-yellow');
+        const red = varColor('--neon-red');
+        const green = varColor('--neon-green');
+
+        if (state.scene === 'store') {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#111'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            drawStoreInterior();
+        } else if (state.scene === 'office') {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0a0a14'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            drawOfficeInterior();
+        } else if (state.scene === 'gym') {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#11111a'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            drawGymInterior();
+        } else if (state.scene === 'library') {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#050510'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            drawLibraryInterior();
+        } else if (state.scene === 'pub') {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0a050a'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            drawPubInterior();
+        } else {
+            ctx.fillStyle = '#020205'; ctx.fillRect(0,0, canvas.width, canvas.height * 0.7);
+            ctx.fillStyle = '#0a0a0f'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            const arrowY = canvas.height * 0.45;
+            if (state.scene === 'city') {
+                drawArrow(20, arrowY, 'left', yellow, 'HOME');
+                drawArrow(canvas.width - 50, arrowY, 'right', pink, 'TOWN');
+                drawArrow(canvas.width/2 - 20, canvas.height * 0.88, 'down', red, 'HOOD');
+                drawKofBuilding(50, 60, canvas.height * 0.3, '#1a1a2e', blue, 'LIB');
+                drawKofBuilding(150, 80, canvas.height * 0.55, '#1e3a8a', blue, 'GYM');
+                drawKofBuilding(canvas.width - 200, 80, canvas.height * 0.65, '#312e81', pink, 'OFFICE');
+            } else if (state.scene === 'downtown') {
+                drawArrow(20, arrowY, 'left', blue, 'CITY');
+                drawKofBuilding(30, 80, canvas.height * 0.35, '#2e1065', pink, 'PUB');
+                drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.65, '#701a75', blue, 'CASINO');
+            } else if (state.scene === 'home') {
+                drawArrow(canvas.width - 50, arrowY, 'right', blue, 'CITY');
+                drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.5, '#111', yellow, 'FLAT');
+            } else if (state.scene === 'hood') {
+                drawArrow(20, arrowY, 'left', blue, 'CITY');
+                drawKofBuilding(120, 80, canvas.height * 0.55, '#000', red, 'DEN', true);
+            }
+        }
+
+        npcs.forEach(npc => {
+            if(npc.scene === state.scene) drawStickman(npc.x, canvas.height * 0.82, npc.color, false, false, 1, npc.name);
+        });
+
+        if(stickMan.isMoving) {
+            const d = stickMan.targetX - stickMan.x;
+            if(Math.abs(d) > 5) stickMan.x += Math.sign(d) * stickMan.speed;
+            else stickMan.isMoving = false;
+            updateUI();
+        }
+        drawStickman(stickMan.x, stickMan.y, '#fff', true, stickMan.isMoving, stickMan.facing);
+        requestAnimationFrame(gameLoop);
+    }
+    init();
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stick RPG - KOF 2002 Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ADSTERRA POPUNDER (ID: 28997339) -->
+    <script type='text/javascript' src='//pl25439771.highperformanceformat.com/8f/63/25/8f632590209503487f54c935c935677d.js'></script>
+    
+    <!-- ADSTERRA SOCIAL BAR (ID: 28997340) -->
+    <script type='text/javascript' src='//pl25439783.highperformanceformat.com/f0/2d/72/f02d7293563968393563923563957293.js'></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
