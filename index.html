@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Stick RPG - KOF 2002 Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ADSTERRA POPUNDER (ID: 28997339) -->
+    <script type='text/javascript' src='//pl25439771.highperformanceformat.com/8f/63/25/8f632590209503487f54c935c935677d.js'></script>
+    
+    <!-- ADSTERRA SOCIAL BAR (ID: 28997340) -->
+    <script type='text/javascript' src='//pl25439783.highperformanceformat.com/f0/2d/72/f02d7293563968393563923563957293.js'></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -71,6 +78,19 @@
             flex-direction: column;
             gap: 8px;
             position: relative;
+        }
+
+        .ad-slot {
+            background: #000;
+            border: 1px dashed #333;
+            min-height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #444;
+            margin-top: auto;
+            overflow: hidden;
         }
 
         .btn-action {
@@ -157,11 +177,20 @@
 
         .modal-content { background: #111; border: 2px solid var(--neon-blue); padding: 30px; text-align: center; max-width: 400px; width: 100%; }
         input { background: #000; border: 1px solid var(--neon-blue); color: white; padding: 10px; width: 100%; margin: 20px 0; text-align: center; text-transform: uppercase; }
+
+        @keyframes slideIn {
+            from { transform: translate(-50%, -100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .toast-active {
+            display: block !important;
+            animation: slideIn 0.3s ease-out;
+        }
     </style>
 </head>
 <body>
 
-<div id="save-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-black px-5 py-2 hidden z-[1000] pixel-font text-[10px]">DATA SAVED</div>
+<div id="save-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-black px-6 py-3 hidden z-[1000] pixel-font text-[12px] border-2 border-white shadow-[0_0_15px_rgba(57,255,20,0.5)]">DATA SAVED SUCCESSFULLY</div>
 
 <div id="name-modal">
     <div class="modal-content">
@@ -177,8 +206,11 @@
     <div id="scene-display" class="scene-indicator pixel-font">CITY</div>
 
     <div class="ui-panel">
+        <!-- PLAYER PANEL -->
         <div class="stat-card">
-            <h3 class="text-[10px] text-blue-400 font-bold mb-1 pixel-font">PLAYER_INFO</h3>
+            <div class="flex justify-between items-center mb-1">
+                <h3 class="text-[10px] text-blue-400 font-bold pixel-font">PLAYER_INFO</h3>
+            </div>
             <div id="player-name" class="text-white font-bold pixel-font text-[10px] mb-1">NAME: ---</div>
             <div id="player-id" class="text-[9px] text-gray-600 mb-3 break-all">ID: INITIALIZING...</div>
             
@@ -199,20 +231,29 @@
                 <div><div class="text-[8px] text-gray-500">SOC</div><div id="stat-soc" class="text-xs font-bold text-yellow-500">0</div></div>
             </div>
 
-            <div class="mt-4 flex flex-col gap-2">
-                <div id="btn-manual-save" class="btn-action btn-green">SAVE PROGRESS</div>
-                <div id="btn-reset" class="text-[8px] text-center text-red-800 cursor-pointer hover:text-red-500 underline uppercase">Reset All Data</div>
+            <div id="btn-manual-save" class="btn-action btn-green mt-3 text-[8px] h-[30px] min-h-[30px] pixel-font">SYNC PROGRESS</div>
+
+            <!-- Ad Slot Left -->
+            <div class="ad-slot">
+                <div class="text-gray-500">AD SPACE (LEFT)</div>
             </div>
         </div>
 
+        <!-- LOG & CENTER ACTION PANEL -->
         <div class="flex flex-col gap-2">
             <div id="log" class="log-box flex-1">
-                <div>System Loaded. Citizens are active.</div>
+                <div>System Loaded. Welcome to the streets.</div>
             </div>
             <div id="btn-sleep" class="btn-action w-full pixel-font text-[8px]" style="display:none; border-color: var(--neon-yellow); color: var(--neon-yellow);">SLEEP (RESTORE ALL ENERGY)</div>
             <div id="btn-talk" class="btn-action" style="border-color: #fff; display:none;">TALK</div>
+            
+            <!-- Ad Slot Center -->
+            <div class="ad-slot" style="min-height: 60px;">
+                <div class="text-gray-500">AD SPACE (CENTER)</div>
+            </div>
         </div>
 
+        <!-- ACTION PANEL -->
         <div class="stat-card">
             <h3 class="text-[10px] text-blue-400 font-bold mb-2 pixel-font">CORE_ACTIONS</h3>
             <div class="grid grid-cols-1 gap-2">
@@ -223,11 +264,19 @@
                 <div id="btn-pub" class="btn-action btn-pink">VISIT PUB</div>
                 <div id="btn-casino" class="btn-action btn-red">ENTER CASINO</div>
             </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+                <div id="btn-reset" class="text-[8px] text-center text-red-800 cursor-pointer hover:text-red-500 underline uppercase">Reset All Data</div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+    function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
     const getPlayerID = () => {
         let id = localStorage.getItem('stick_rpg_v2_id') || 'P-' + Math.random().toString(36).substr(2, 6).toUpperCase();
         localStorage.setItem('stick_rpg_v2_id', id);
@@ -246,22 +295,11 @@
 
     const stickMan = { x: 0, y: 0, targetX: 0, speed: 7, isMoving: false, facing: 1 };
 
-    // Expanded NPC roster
     const npcs = [
-        { id: 1, scene: 'city', x: 280, color: '#00f2ff', name: 'Kyo', line: "Need more training.", state: 'idle', targetX: 280, timer: 0, chatTimer: 0 },
-        { id: 2, scene: 'city', x: 500, color: '#39ff14', name: 'Beni', line: "Electrifying!", state: 'idle', targetX: 500, timer: 0, chatTimer: 0 },
-        { id: 3, scene: 'city', x: 100, color: '#ffcc00', name: 'Joe', line: "Great day for a fight!", state: 'idle', targetX: 100, timer: 0, chatTimer: 0 },
-        { id: 4, scene: 'city', x: 700, color: '#ff5555', name: 'Andy', line: "I've been looking for you.", state: 'idle', targetX: 700, timer: 0, chatTimer: 0 },
-        
-        { id: 5, scene: 'downtown', x: 100, color: '#ff00ea', name: 'Mai', line: "Ready for the stage?", state: 'idle', targetX: 100, timer: 0, chatTimer: 0 },
-        { id: 6, scene: 'downtown', x: 350, color: '#f59e0b', name: 'Terry', line: "Hey! Come on!", state: 'idle', targetX: 350, timer: 0, chatTimer: 0 },
-        { id: 7, scene: 'downtown', x: 550, color: '#ff0055', name: 'King', line: "Keep it classy.", state: 'idle', targetX: 550, timer: 0, chatTimer: 0 },
-        { id: 8, scene: 'downtown', x: 200, color: '#00ffcc', name: 'Kim', line: "Justice prevails!", state: 'idle', targetX: 200, timer: 0, chatTimer: 0 },
-
-        { id: 9, scene: 'hood', x: 380, color: '#ef4444', name: 'Iori', line: "Begone.", state: 'idle', targetX: 380, timer: 0, chatTimer: 0 },
-        { id: 10, scene: 'hood', x: 600, color: '#888', name: 'Billy', line: "Stay back.", state: 'idle', targetX: 600, timer: 0, chatTimer: 0 },
-        { id: 11, scene: 'hood', x: 150, color: '#9933ff', name: 'Yamazaki', line: "Hahaha! Die!", state: 'idle', targetX: 150, timer: 0, chatTimer: 0 },
-        { id: 12, scene: 'hood', x: 500, color: '#66ff66', name: 'Choi', line: "Hehehe, slice!", state: 'idle', targetX: 500, timer: 0, chatTimer: 0 }
+        { id: 1, scene: 'city', x: 280, color: '#00f2ff', name: 'Kyo', dialogue: { talk: "Ready to burn?" }, state: 'idle' },
+        { id: 2, scene: 'city', x: 500, color: '#39ff14', name: 'Beni', dialogue: { talk: "Watch my lightning!" }, state: 'idle' },
+        { id: 6, scene: 'downtown', x: 350, color: '#f59e0b', name: 'Terry', dialogue: { talk: "Buster Wolf!!" }, state: 'idle' },
+        { id: 9, scene: 'hood', x: 380, color: '#ef4444', name: 'Iori', dialogue: { talk: "I'll end you." }, state: 'idle' }
     ];
 
     function log(msg, color = "#00f2ff") {
@@ -296,11 +334,11 @@
             talkBtn.style.display = 'flex';
             talkBtn.textContent = `TALK TO ${nearby.name}`;
             talkBtn.onclick = () => {
-                if (state.energy < 5) { log("Too tired.", "var(--neon-pink)"); return; }
+                if (state.energy < 5) { log("Too tired.", getCssVar('--neon-pink')); return; }
                 state.energy -= 5;
-                log(`${nearby.name}: "${nearby.line}"`, nearby.color);
-                state.soc++;
-                updateUI();
+                log(`${nearby.name}: "${nearby.dialogue.talk}"`, nearby.color);
+                state.soc++; 
+                updateUI(); 
                 save();
             };
         } else talkBtn.style.display = 'none';
@@ -310,16 +348,17 @@
         localStorage.setItem('stick_rpg_v2_save', JSON.stringify(state));
         if(manual) {
             const toast = document.getElementById('save-toast');
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            toast.classList.add('toast-active');
+            log("Game state manually saved.", getCssVar('--neon-green'));
+            setTimeout(() => { toast.classList.remove('toast-active'); }, 3000);
         }
     }
 
     function nextDay() {
         state.day++; state.hour = 8; state.energy = 100;
-        if(state.scene !== 'home') switchScene('home');
-        log(`Day ${state.day}: The grind continues.`, "var(--neon-yellow)");
-        updateUI(); save();
+        log(`Day ${state.day}: Morning light hits the concrete.`, getCssVar('--neon-yellow'));
+        updateUI(); 
+        save();
     }
 
     function switchScene(newScene) {
@@ -328,26 +367,28 @@
         if (newScene === 'hood') stickMan.x = canvas.width/2;
         stickMan.targetX = stickMan.x;
         log(`Entering ${newScene}...`);
-        updateUI(); save();
+        updateUI(); 
+        save();
     }
 
     function perform(type) {
-        if(state.energy < 20 && type !== 'pub' && type !== 'store') { log("Exhausted.", "#ff00ea"); return; }
+        if(state.energy < 20 && type !== 'pub' && type !== 'store') { log("Exhausted.", getCssVar('--neon-pink')); return; }
         state.hour += 2;
-        if(type === 'work') { state.energy -= 20; state.cash += 15 + (state.int * 2); log("Worked a shift."); }
-        if(type === 'gym') { state.energy -= 25; state.str += 3; log("Trained hard."); }
-        if(type === 'lib') { state.energy -= 15; state.int += 3; log("Studied."); }
-        if(type === 'store') { if(state.cash >= 5) { state.cash -= 5; state.energy = Math.min(100, state.energy + 15); log("Drank soda."); } }
-        if(type === 'pub') { if(state.cash >= 10) { state.cash -= 10; state.energy = Math.min(100, state.energy + 20); state.cha += 2; log("Vibed at the pub."); } }
+        if(type === 'work') { state.energy -= 20; state.cash += 15 + (state.int * 2); log("Clocked in at Office."); }
+        if(type === 'gym') { state.energy -= 25; state.str += 3; log("Hit the weights."); }
+        if(type === 'lib') { state.energy -= 15; state.int += 3; log("Read books."); }
+        if(type === 'store') { if(state.cash >= 5) { state.cash -= 5; state.energy = Math.min(100, state.energy + 15); log("Grabbed a snack."); } }
+        if(type === 'pub') { if(state.cash >= 10) { state.cash -= 10; state.energy = Math.min(100, state.energy + 20); state.cha += 2; log("Visited Pub."); } }
         if(type === 'casino') {
             if(state.cash >= 20) {
                 state.cash -= 20; state.energy -= 10;
-                if(Math.random() > 0.6) { const p = 50; state.cash += p; log(`WON $${p}!`, "var(--neon-green)"); }
+                if(Math.random() > 0.6) { state.cash += 50; log("JACKPOT! Won $50!", getCssVar('--neon-green')); }
                 else log("Lost $20.");
             }
         }
         if(state.hour >= 24) nextDay();
-        updateUI(); save();
+        updateUI(); 
+        save();
     }
 
     function drawArrow(x, y, dir, color, label) {
@@ -367,101 +408,78 @@
     function drawStickman(x, y, color = '#fff', isPlayer = true, isMoving = false, facing = 1, name = "") {
         const time = Date.now();
         const bounce = isMoving ? Math.sin(time / 100) * 5 : Math.sin(time / 300) * 2;
+        const armSwing = isMoving ? Math.sin(time / 100) * 8 : 0;
         ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(x, y - 65 + bounce, 10, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 55 + bounce); ctx.lineTo(x, y - 25); ctx.stroke();
+        ctx.beginPath(); const shoulderY = y - 50 + bounce;
+        ctx.moveTo(x, shoulderY); ctx.lineTo(x - (18 + armSwing) * facing, shoulderY + 12);
+        ctx.moveTo(x, shoulderY); ctx.lineTo(x + (18 + armSwing) * facing, shoulderY + 12); ctx.stroke();
         ctx.beginPath();
-        ctx.arc(x, y - 65 + bounce, 10, 0, Math.PI * 2); 
-        ctx.moveTo(x, y - 55 + bounce); ctx.lineTo(x, y - 25); 
-        const cycle = time / 80;
         if(isMoving) {
-            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(cycle) * 15, y + 5);
-            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(cycle + Math.PI) * 15, y + 5);
-            ctx.moveTo(x, y - 45 + bounce); ctx.lineTo(x + Math.sin(cycle + Math.PI) * 15, y - 25 + bounce);
-            ctx.moveTo(x, y - 45 + bounce); ctx.lineTo(x + Math.sin(cycle) * 15, y - 25 + bounce);
+            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(time/80) * 15, y + 5);
+            ctx.moveTo(x, y - 25); ctx.lineTo(x + Math.sin(time/80 + Math.PI) * 15, y + 5);
         } else {
-            ctx.moveTo(x, y - 25); ctx.lineTo(x - 8, y + 5);
-            ctx.moveTo(x, y - 25); ctx.lineTo(x + 8, y + 5);
-            ctx.moveTo(x, y - 45 + bounce); ctx.lineTo(x - 12 * facing, y - 25 + bounce);
-            ctx.moveTo(x, y - 45 + bounce); ctx.lineTo(x + 12 * facing, y - 25 + bounce);
+            ctx.moveTo(x, y - 25); ctx.lineTo(x - 8, y + 5); ctx.moveTo(x, y - 25); ctx.lineTo(x + 8, y + 5);
         }
         ctx.stroke();
-        if(name) {
-            ctx.fillStyle = color; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center';
-            ctx.fillText(name, x, y - 85);
-        }
+        if(name) { ctx.fillStyle = color; ctx.font = '6px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillText(name, x, y - 85); }
     }
 
     function drawKofBuilding(x, w, h, baseColor, neonColor, name, isHood = false) {
         ctx.save();
-        // Building Body
-        const grad = ctx.createLinearGradient(x, canvas.height * 0.7 - h, x, canvas.height * 0.7);
-        grad.addColorStop(0, baseColor);
-        grad.addColorStop(1, '#050508');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, canvas.height * 0.7 - h, w, h);
+        const groundY = canvas.height * 0.7;
         
-        // Neon Accents
-        ctx.strokeStyle = neonColor;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = isHood ? (Math.random() > 0.8 ? 2 : 15) : 10;
-        ctx.shadowColor = neonColor;
-        ctx.strokeRect(x, canvas.height * 0.7 - h, w, h);
+        // Building Base
+        const grad = ctx.createLinearGradient(x, groundY - h, x, groundY);
+        grad.addColorStop(0, baseColor); grad.addColorStop(1, '#050508');
+        ctx.fillStyle = grad; ctx.fillRect(x, groundY - h, w, h);
         
         // Windows
-        ctx.fillStyle = isHood ? (Math.random() > 0.5 ? neonColor : '#111') : neonColor;
-        for(let i = 0; i < Math.floor(h/20); i++) {
-            ctx.globalAlpha = 0.3 + Math.random() * 0.5;
-            ctx.fillRect(x + 10, canvas.height * 0.7 - h + 15 + (i * 20), w - 20, 10);
+        if (!isHood) {
+            const time = Date.now();
+            const winSpacing = 25;
+            for(let row = 1; row < h/winSpacing; row++) {
+                const winY = groundY - h + (row * winSpacing);
+                if (winY + 12 > groundY - 5) continue;
+
+                for(let col = 0; col < 3; col++) {
+                    const winX = x + 10 + (col * (w/4));
+                    const winW = w/6;
+                    const winH = 12;
+
+                    const flicker = Math.sin(time / 200 + (row * col)) > 0.8 ? 0.6 : 0.2;
+                    ctx.save();
+                    ctx.globalAlpha = flicker;
+                    const glow = ctx.createRadialGradient(winX + winW/2, winY + winH/2, 2, winX + winW/2, winY + winH/2, winW);
+                    glow.addColorStop(0, neonColor);
+                    glow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glow;
+                    ctx.fillRect(winX - 5, winY - 5, winW + 10, winH + 10);
+                    ctx.restore();
+                    
+                    ctx.globalAlpha = 0.8;
+                    ctx.fillStyle = neonColor;
+                    ctx.fillRect(winX, winY, winW, winH);
+                    ctx.globalAlpha = 1.0;
+                }
+            }
         }
-        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = neonColor; ctx.lineWidth = 3;
+        ctx.shadowBlur = isHood ? 2 : 15; ctx.shadowColor = neonColor;
+        ctx.strokeRect(x, groundY - h, w, h);
+        
         ctx.fillStyle = neonColor; ctx.font = '8px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(name, x + w/2, canvas.height * 0.7 - h - 15);
+        ctx.fillText(name, x + w/2, groundY - h - 15);
         ctx.restore();
-    }
-
-    function updateNPCs() {
-        npcs.forEach(npc => {
-            if(npc.scene !== state.scene) return;
-            
-            npc.timer--;
-            if(npc.timer <= 0) {
-                if(npc.state === 'idle') {
-                    npc.state = 'moving';
-                    npc.targetX = 50 + Math.random() * (canvas.width - 100);
-                    npc.timer = 100 + Math.random() * 200;
-                } else {
-                    npc.state = 'idle';
-                    npc.timer = 100 + Math.random() * 100;
-                }
-            }
-
-            if(npc.state === 'moving') {
-                const d = npc.targetX - npc.x;
-                if(Math.abs(d) > 2) npc.x += Math.sign(d) * 2.5;
-                else npc.state = 'idle';
-            }
-
-            npc.chatTimer--;
-            npcs.forEach(other => {
-                if(npc.id !== other.id && other.scene === npc.scene && Math.abs(npc.x - other.x) < 45) {
-                    if(npc.chatTimer <= 0 && npc.state === 'idle' && other.state === 'idle') {
-                        npc.chatTimer = 180;
-                        other.chatTimer = 180;
-                    }
-                }
-            });
-        });
     }
 
     function init() {
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
         stickMan.y = canvas.height * 0.82;
-        window.addEventListener('resize', () => {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-            stickMan.y = canvas.height * 0.82;
-        });
-
+        
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
@@ -489,7 +507,8 @@
         document.getElementById('btn-casino').onclick = () => perform('casino');
         document.getElementById('btn-sleep').onclick = () => nextDay();
         document.getElementById('btn-manual-save').onclick = () => save(true);
-        document.getElementById('btn-reset').onclick = () => { if(confirm("Reset?")) { localStorage.clear(); location.reload(); } };
+        
+        document.getElementById('btn-reset').onclick = () => { if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); } };
         document.getElementById('btn-start').onclick = () => {
             const val = document.getElementById('name-input').value.trim();
             if(val) { state.name = val; document.getElementById('name-modal').style.display = 'none'; updateUI(); save(); }
@@ -504,64 +523,37 @@
 
     function gameLoop() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Background
-        const sky = ctx.createLinearGradient(0,0,0, canvas.height * 0.7);
-        if (state.scene === 'city') { sky.addColorStop(0, '#020205'); sky.addColorStop(1, '#0c0c20'); }
-        else if (state.scene === 'downtown') { sky.addColorStop(0, '#0a000a'); sky.addColorStop(1, '#250025'); }
-        else if (state.scene === 'hood') { sky.addColorStop(0, '#050005'); sky.addColorStop(1, '#1a001a'); }
-        else { sky.addColorStop(0, '#050505'); sky.addColorStop(1, '#111'); }
-        ctx.fillStyle = sky; ctx.fillRect(0,0, canvas.width, canvas.height * 0.7);
+        ctx.fillStyle = '#020205'; ctx.fillRect(0,0, canvas.width, canvas.height * 0.7);
         ctx.fillStyle = '#0a0a0f'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
         
+        const blue = getCssVar('--neon-blue');
+        const pink = getCssVar('--neon-pink');
+        const yellow = getCssVar('--neon-yellow');
+        const red = getCssVar('--neon-red');
+        const green = getCssVar('--neon-green');
+
         const arrowY = canvas.height * 0.45;
         if (state.scene === 'city') {
-            drawArrow(20, arrowY, 'left', 'var(--neon-yellow)', 'HOME');
-            drawArrow(canvas.width - 50, arrowY, 'right', 'var(--neon-pink)', 'TOWN');
-            drawArrow(canvas.width/2 - 20, canvas.height * 0.88, 'down', 'var(--neon-red)', 'HOOD');
-            
-            // City Skyline
-            drawKofBuilding(50, 70, canvas.height * 0.4, '#1a1a2e', '#00f2ff', 'TOWER A');
-            drawKofBuilding(150, 80, canvas.height * 0.55, '#1e3a8a', '#00f2ff', 'GYM');
-            drawKofBuilding(canvas.width/2 - 40, 90, canvas.height * 0.35, '#0d1117', '#39ff14', 'PLAZA');
-            drawKofBuilding(canvas.width - 200, 80, canvas.height * 0.65, '#312e81', '#ff00ea', 'OFFICE');
-            drawKofBuilding(canvas.width - 100, 60, canvas.height * 0.45, '#1a1a2e', '#00f2ff', 'TOWER B');
+            drawArrow(20, arrowY, 'left', yellow, 'HOME');
+            drawArrow(canvas.width - 50, arrowY, 'right', pink, 'TOWN');
+            drawArrow(canvas.width/2 - 20, canvas.height * 0.88, 'down', red, 'HOOD');
+            drawKofBuilding(50, 70, canvas.height * 0.4, '#1a1a2e', blue, 'TOWER A');
+            drawKofBuilding(150, 80, canvas.height * 0.55, '#1e3a8a', blue, 'GYM');
+            drawKofBuilding(canvas.width - 200, 80, canvas.height * 0.65, '#312e81', pink, 'OFFICE');
         } else if (state.scene === 'downtown') {
-            drawArrow(20, arrowY, 'left', 'var(--neon-blue)', 'CITY');
-            
-            // Downtown Skyline
-            drawKofBuilding(30, 80, canvas.height * 0.35, '#2e1065', '#39ff14', 'BAR');
-            drawKofBuilding(130, 90, canvas.height * 0.5, '#4c1d95', '#39ff14', 'PUB');
-            drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.65, '#701a75', '#00f2ff', 'CASINO');
-            drawKofBuilding(canvas.width/2 + 80, 70, canvas.height * 0.4, '#581c87', '#ff00ea', 'STAGE');
-            drawKofBuilding(canvas.width - 150, 100, canvas.height * 0.3, '#78350f', '#f59e0b', 'STORE');
-            drawKofBuilding(canvas.width - 50, 40, canvas.height * 0.55, '#2e1065', '#39ff14', 'HOTEL');
+            drawArrow(20, arrowY, 'left', blue, 'CITY');
+            drawKofBuilding(30, 80, canvas.height * 0.35, '#2e1065', green, 'BAR');
+            drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.65, '#701a75', blue, 'CASINO');
         } else if (state.scene === 'home') {
-            drawArrow(canvas.width - 50, arrowY, 'right', 'var(--neon-blue)', 'CITY');
-            drawKofBuilding(50, 60, canvas.height * 0.5, '#111', '#555', 'RESID A');
-            drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.45, '#111', '#f59e0b', 'FLAT');
-            drawKofBuilding(canvas.width - 120, 60, canvas.height * 0.5, '#111', '#555', 'RESID B');
+            drawArrow(canvas.width - 50, arrowY, 'right', blue, 'CITY');
+            drawKofBuilding(canvas.width/2 - 60, 120, canvas.height * 0.5, '#111', yellow, 'FLAT');
         } else if (state.scene === 'hood') {
-            drawArrow(20, arrowY, 'left', 'var(--neon-blue)', 'CITY');
-            
-            // Hood Skyline
-            drawKofBuilding(40, 60, canvas.height * 0.4, '#000', '#ef4444', 'VOID', true);
-            drawKofBuilding(120, 80, canvas.height * 0.55, '#000', '#ef4444', 'DEN', true);
-            drawKofBuilding(canvas.width/2 - 40, 80, canvas.height * 0.3, '#000', '#888', 'RUINS', true);
-            drawKofBuilding(canvas.width - 200, 80, canvas.height * 0.45, '#000', '#ff00ea', 'SLUM', true);
-            drawKofBuilding(canvas.width - 100, 70, canvas.height * 0.5, '#000', '#ef4444', 'ALLEY', true);
+            drawArrow(20, arrowY, 'left', blue, 'CITY');
+            drawKofBuilding(120, 80, canvas.height * 0.55, '#000', red, 'DEN', true);
         }
 
-        updateNPCs();
         npcs.forEach(npc => {
-            if(npc.scene === state.scene) {
-                drawStickman(npc.x, canvas.height * 0.82, npc.color, false, npc.state === 'moving', 1, npc.name);
-                if(npc.chatTimer > 0) {
-                    ctx.fillStyle = '#fff'; ctx.fillRect(npc.x - 20, canvas.height * 0.82 - 110, 40, 15);
-                    ctx.fillStyle = '#000'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText("!!!", npc.x, canvas.height * 0.82 - 99);
-                }
-            }
+            if(npc.scene === state.scene) drawStickman(npc.x, canvas.height * 0.82, npc.color, false, false, 1, npc.name);
         });
 
         if(stickMan.isMoving) {
@@ -569,7 +561,7 @@
             if(Math.abs(d) > 5) stickMan.x += Math.sign(d) * stickMan.speed;
             else stickMan.isMoving = false;
         }
-        drawStickman(stickMan.x, stickMan.y);
+        drawStickman(stickMan.x, stickMan.y, '#fff', true, stickMan.isMoving, stickMan.facing);
         requestAnimationFrame(gameLoop);
     }
     init();
